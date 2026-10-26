@@ -6,6 +6,9 @@ An open source offline tool to add fillable fields to a pdf form.
 - Runs locally. No data leaves your device.
 - Easy to modify the code using vibe coding. Simply pass the index.html file to an LLM like Claude Sonnet.
 
+Live demo:<br>
+https://make-pdf-fillable.woza.work/
+
 <br>
 
 <img src="images/image1.png" alt="App screenshot" height="500">
