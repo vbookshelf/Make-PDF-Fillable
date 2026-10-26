@@ -2,7 +2,7 @@
 An open source offline tool to add fillable fields to a pdf form.
 
 - Minimal features - app is simple to use
-- Fields continue to be editable after pdf is downloaded (Use "print as pdf" to make fields non-editable).
+- Fields continue to be editable after pdf is downloaded (Use your device's "print as pdf" feature to make a pdf non-editable).
 - Runs locally. No data leaves your device.
 - Easy to modify the code using vibe coding. Simply pass the index.html file to an LLM like Claude Sonnet.
 
