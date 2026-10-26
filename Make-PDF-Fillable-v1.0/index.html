@@ -323,7 +323,7 @@ function armOverlays() { pages.forEach(p => p.ov.classList.toggle("armed", !!too
 function addField(pi, cx, cy) {
   const d = DEFAULTS[tool], p = pages[pi];
   const f = { id: nextId++, page: pi, type: tool, w: d.w, h: d.h,
-    x: Math.max(0, Math.min(p.w - d.w, cx)), y: Math.max(0, Math.min(p.h - d.h, cy)), name: "",
+    x: Math.max(0, Math.min(p.w - d.w, cx)), y: Math.max(0, Math.min(p.h - d.h, cy - d.h)), name: "",
     value: "", font: last.font, size: last.size, align: "left" };
   f.name = tool + "_" + f.id;
   fields.push(f); buildBox(f); select(f.id); if (COARSE && f.inp) f.inp.focus();
