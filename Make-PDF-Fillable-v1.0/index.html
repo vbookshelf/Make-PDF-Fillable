@@ -1,0 +1,517 @@
+<!--
+# Make PDF Fillable
+# GitHub: https://github.com/vbookshelf/Make-PDF-Fillable
+# License: MIT (You are free to share this app with others.)
+# Version: 1.0
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Make PDF Fillable</title>
+<meta name="description" content="Make PDF Fillable is a free tool to add editable fields to a pdf form. Works offline. Open source. No ads.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect x=%224%22 y=%222%22 width=%2216%22 height=%2220%22 rx=%222%22 fill=%22white%22 stroke=%22black%22 stroke-width=%221.5%22/><rect x=%226%22 y=%2210%22 width=%2212%22 height=%224%22 fill=%22none%22 stroke=%22black%22/></svg>">
+<script src="vendor/pdf-lib.min.js"></script>
+<script src="vendor/pdf.min.js"></script>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#fff; --ink:#1c1c1c; --muted:#6b6b6b; --line:#e2e2df; --line-strong:#95958f;
+  --bad:#c62828; --accent:#2554c7; --hover:#f0f0ee; --primary-bg:#1c1c1c; --primary-fg:#fff;
+  --sel:#f0f4fd; --dz-border:#c4c4c0;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#1b1c1d; --panel:#242526; --ink:#e8e8e6; --muted:#a3a3a1; --line:#38393a; --line-strong:#55565a;
+  --bad:#ef5350; --accent:#6e9eff; --hover:#2e2f30; --primary-bg:#e8e8e6; --primary-fg:#15161a;
+  --sel:#1f2a3d; --dz-border:#4a4b4c;
+}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column;min-height:100vh}
+input[type=file]{display:none}
+button{font:inherit;font-size:14px;font-weight:500;padding:9px 14px;border-radius:7px;width:100%;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink);cursor:pointer}
+button:hover{background:var(--hover)}
+button.primary{background:var(--primary-bg);color:var(--primary-fg);border-color:var(--primary-bg)}
+button:disabled{opacity:.55;cursor:not-allowed}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.layout{flex:1;display:flex;min-height:0}
+
+.sidebar{width:360px;flex-shrink:0;border-right:1px solid var(--line);background:var(--panel);overflow-y:auto;padding:24px 20px 40px;display:flex;flex-direction:column}
+.sidebar>*{flex-shrink:0}
+.sidebar-footer{margin-top:auto;padding-top:24px}
+.sidebar-footer a{font-size:14px;font-weight:500;color:var(--muted);text-decoration:none}
+.sidebar-footer a:hover{color:var(--accent);text-decoration:none}
+.sidebar-footer a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sidebar-header{margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.sidebar-header h1{font-size:18px;font-weight:700;margin:0;letter-spacing:-.01em}
+.sidebar-header p{margin:6px 0 0;font-size:14px;color:var(--muted);line-height:1.45}
+.sidebar-header ul{list-style:none;margin:12px 0 0;padding:0;counter-reset:step;display:flex;flex-direction:column;gap:8px}
+.sidebar-header li{counter-increment:step;position:relative;padding-left:28px;font-size:14px;line-height:1.45;color:var(--muted)}
+.sidebar-header li::before{content:counter(step);position:absolute;left:0;top:1px;width:18px;height:18px;border-radius:50%;background:var(--sel);color:var(--accent);border:1px solid var(--accent);font-size:11px;font-weight:700;line-height:16px;text-align:center}
+.group{margin-bottom:14px}
+.group-label{font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:8px}
+.tools{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.tools button{padding:9px 6px}
+.tools button[aria-pressed="true"]{border-color:var(--accent);background:var(--sel);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+#pageJumpInput{font:inherit;font-size:14px;font-weight:500;padding:9px 14px;border-radius:7px;width:100%;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
+#pageJumpInput:disabled{opacity:.55;cursor:not-allowed}
+#list{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow-y:auto}
+.empty{margin:0;font-size:12.5px;color:var(--muted);line-height:1.45}
+#status{font-size:12.5px;color:var(--muted);margin:10px 0 0;line-height:1.4}
+#status.error{color:var(--bad);font-weight:600}
+
+.canvas-panel{flex:1;overflow-y:auto;padding:28px 24px 80px;position:relative}
+.canvas-panel.drag-over::after{content:'';position:absolute;inset:8px;border:2px dashed var(--accent);border-radius:14px;pointer-events:none}
+#emptyState{height:100%;display:flex;align-items:center;justify-content:center}
+#dropzone{border:1.5px dashed var(--dz-border);border-radius:12px;padding:40px 56px;text-align:center;background:var(--panel);cursor:pointer;max-width:360px}
+#dropzone:hover{border-color:var(--accent)}
+.dz-title{font-size:15px;font-weight:700}
+.dz-sub{font-size:12.5px;color:var(--muted);margin-top:6px}
+.page-wrap{background:var(--panel);border:1px solid var(--line);margin:0 auto 22px;overflow:hidden;max-width:760px}
+.page-label{font-size:12.5px;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line)}
+.stack{position:relative;line-height:0;background:#fff}
+.stack canvas{display:block;width:100%}
+.ov{position:absolute;inset:0}
+.ov.armed{cursor:crosshair}
+
+/* A field: body drags to move, corner handles resize, small x deletes */
+.fb{position:absolute;border:1px dashed #b3b3b3;background:none;cursor:move;touch-action:none}
+.fb.sel{border-color:#6e6e6e}
+.fb .x{display:none;position:absolute;touch-action:none}
+.fb.sel .x{display:block}
+.fb .h{position:absolute;touch-action:none}
+.h.n{left:8px;right:8px;top:-6px;height:12px;cursor:ns-resize}.h.s{left:8px;right:8px;bottom:-6px;height:12px;cursor:ns-resize}
+.h.w{top:8px;bottom:8px;left:-6px;width:12px;cursor:ew-resize}.h.e{top:8px;bottom:8px;right:-6px;width:12px;cursor:ew-resize}
+.h.nw,.h.ne,.h.sw,.h.se{width:16px;height:16px}   /* invisible grab areas; the cursor shows they resize */
+.h.nw{left:-8px;top:-8px;cursor:nwse-resize}.h.ne{right:-8px;top:-8px;cursor:nesw-resize}
+.h.sw{left:-8px;bottom:-8px;cursor:nesw-resize}.h.se{right:-8px;bottom:-8px;cursor:nwse-resize}
+.fb .ti{position:absolute;inset:0;width:100%;height:100%;border:0;margin:0;padding:1px 3px;background:transparent;color:#000;outline:none;pointer-events:none;min-width:0;resize:none;overflow:hidden;white-space:pre-wrap;overflow-wrap:break-word;line-height:1.15;box-sizing:border-box;display:block}
+.fb .mk{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#000;pointer-events:none;overflow:hidden;line-height:1;font-family:'Segoe UI Symbol','Apple Symbols','DejaVu Sans','Noto Sans Symbols',sans-serif}
+.seg{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.seg button{padding:8px 4px;font-size:13px}
+.seg button[aria-pressed="true"]{border-color:var(--accent);background:var(--sel);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.fld{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.fld label{font-size:13px;width:3.4em;color:var(--muted)}
+.fld select,.fld input[type=number]{flex:1;min-width:0;font:inherit;font-size:14px;padding:8px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--panel);color:var(--ink)}
+.fld select:disabled,.fld input:disabled{opacity:.55}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13px;margin:0 0 12px;color:var(--ink);line-height:1.35}
+.chk small{display:block;color:var(--muted);font-size:12px}
+.x{right:0;top:-22px;width:20px;height:20px;line-height:19px;text-align:center;font-size:12px;background:rgba(255,255,255,.92);color:#555;border:1px solid #ccc;border-radius:4px;cursor:pointer}
+.x:hover{color:#c62828;border-color:#c62828}
+
+.mobile-topbar{display:none}
+.sidebar-toggle{width:44px;height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0}
+.sidebar-toggle svg{width:24px;height:24px}
+.sidebar-toggle .icon-close{display:none}
+.sidebar-toggle[aria-expanded="true"] .icon-menu{display:none}
+.sidebar-toggle[aria-expanded="true"] .icon-close{display:block}
+.sidebar-backdrop{display:none}
+@media (max-width:860px){
+  .mobile-topbar{display:flex;align-items:center;position:fixed;top:0;left:0;right:0;height:calc(56px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) 14px 0;background:var(--panel);border-bottom:1px solid var(--line);z-index:30}
+  .sidebar-toggle{width:44px}
+  .canvas-panel{padding:calc(76px + env(safe-area-inset-top,0px)) 12px 80px}
+  #dropzone{padding:32px 28px}
+  .sidebar{position:fixed;top:calc(56px + env(safe-area-inset-top,0px));left:0;bottom:0;width:min(360px,86vw);z-index:25;transform:translateX(-100%);transition:transform .22s ease;box-shadow:2px 0 18px rgba(0,0,0,.15)}
+  .layout.sidebar-open .sidebar{transform:translateX(0)}
+  .sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(20,20,18,.32);z-index:22;opacity:0;pointer-events:none;transition:opacity .22s ease}
+  .layout.sidebar-open .sidebar-backdrop{opacity:1;pointer-events:auto}
+}
+@media (prefers-reduced-motion:reduce){.sidebar,.sidebar-backdrop{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="mobile-topbar">
+  <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle menu" aria-expanded="false" aria-controls="sidebarPanel">
+    <svg class="icon-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    <svg class="icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="5" x2="19" y2="19"/><line x1="19" y1="5" x2="5" y2="19"/></svg>
+  </button>
+</div>
+<div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebarPanel">
+    <div class="sidebar-header">
+      <h1>Make PDF Fillable</h1>
+	  <ul>
+	    <li>Open pdf form</li>
+	    <li>Click anywhere to insert text box</li>
+	    <li>Drag to correct position and resize</li>
+	    <li>Type text in box (press Enter for a new line)</li>
+		<li>Save as editable or non-editable pdf</li>
+     </ul>
+
+    </div>
+
+    <input type="file" id="fileInput" accept="application/pdf,image/png,image/jpeg">
+    <div class="group"><button id="openBtn">Open a form</button></div>
+    <div class="group"><input type="number" id="pageJumpInput" min="1" placeholder="Go to page" disabled></div>
+
+    <div class="group">
+      <div class="group-label">Add a field</div>
+      <div class="tools">
+        <button id="tText" aria-pressed="true" disabled>Text box</button>
+        <button id="tCross" aria-pressed="false" disabled>✘ Cross</button>
+        <button id="tTick" aria-pressed="false" disabled>✔ Tick</button>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-label">Text style (selected text box)</div>
+      <div class="fld"><label for="fontSel">Font</label>
+        <select id="fontSel" disabled><option value="Helvetica">Helvetica (sans-serif)</option><option value="TimesRoman">Times (serif)</option><option value="Courier">Courier (typewriter)</option></select></div>
+      <div class="fld"><label for="sizeIn">Size</label>
+        <input type="number" id="sizeIn" min="0" max="72" step="1" value="12" placeholder="12" disabled></div>
+      <div class="fld"><label id="alignLbl">Align</label>
+        <div class="seg" id="alignSeg" role="group" aria-labelledby="alignLbl">
+          <button data-a="left" aria-pressed="false" disabled>Left</button>
+          <button data-a="center" aria-pressed="false" disabled>Center</button>
+          <button data-a="right" aria-pressed="false" disabled>Right</button>
+        </div></div>
+    </div>
+
+    <label class="chk"><input type="checkbox" id="flatten"><span>Save as non-editable pdf<small>Turns the typed text into part of the page so it cannot be edited after download.</small></span></label>
+    <button id="saveBtn" class="primary" disabled>Save PDF</button>
+
+    <div class="sidebar-footer"><a href="https://github.com/vbookshelf/Make-PDF-Fillable" target="_blank" rel="noopener noreferrer">GitHub</a></div>
+  </div>
+
+  <div class="canvas-panel" id="canvasPanel">
+    <div id="emptyState">
+      <div id="dropzone" tabindex="0" role="button">
+        <div class="dz-title">Select or drag &amp; drop a pdf form</div>
+        <div class="dz-sub">All processing is done on your device.</div>
+      </div>
+    </div>
+    <div id="pages"></div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+const $ = id => document.getElementById(id);
+const DEFAULTS = { text: { w: 160, h: 20 }, cross: { w: 20, h: 20 }, tick: { w: 20, h: 20 } };   // PDF points
+const MARKS = { cross: "✘", tick: "✔" }, LABEL = { text: "text box", cross: "cross", tick: "tick" };
+const COARSE = matchMedia("(pointer: coarse)").matches;   // touch screens: tapping a box opens the keyboard
+let last = { font: "Helvetica", size: 12 };
+let pdfBytes = null, pdfJs = null, pages = [], fields = [], tool = "text", sel = null, nextId = 1, fileName = "form";
+
+function say(t, err) { if (err && t) console.warn(t); }
+
+// ---------- Sidebar drawer (narrow screens) ----------
+const layoutEl = document.querySelector(".layout");
+function setOpen(o) { layoutEl.classList.toggle("sidebar-open", o); $("sidebarToggle").setAttribute("aria-expanded", o); }
+$("sidebarToggle").onclick = () => setOpen(!layoutEl.classList.contains("sidebar-open"));
+$("sidebarBackdrop").onclick = () => setOpen(false);
+
+// ---------- Opening files ----------
+$("openBtn").onclick = () => $("fileInput").click();
+$("dropzone").onclick = () => $("fileInput").click();
+$("dropzone").onkeydown = e => { if (e.key === "Enter" || e.key === " ") $("fileInput").click(); };
+$("fileInput").onchange = e => { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ""; };
+const panel = $("canvasPanel");
+panel.addEventListener("dragover", e => { e.preventDefault(); panel.classList.add("drag-over"); });
+panel.addEventListener("dragleave", () => panel.classList.remove("drag-over"));
+panel.addEventListener("drop", e => { e.preventDefault(); panel.classList.remove("drag-over"); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+
+async function loadFile(f) {
+  try {
+    say("Loading…");
+    fileName = f.name.replace(/\.[^.]+$/, "");
+    const buf = new Uint8Array(await f.arrayBuffer());
+    if (f.type === "application/pdf") pdfBytes = buf;
+    else if (f.type === "image/png" || f.type === "image/jpeg") pdfBytes = await imageToPdf(buf, f.type);
+    else throw new Error("Please choose a PDF, JPG or PNG file.");
+    pdfJs = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+    fields = []; sel = null; nextId = 1; tool = null; setTool("text");   // Text box is always selected by default
+    await renderPages();
+    $("emptyState").style.display = "none";
+    ["tText", "tCross", "tTick", "saveBtn", "pageJumpInput"].forEach(id => $(id).disabled = false);
+    $("pageJumpInput").max = pdfJs.numPages;
+    setOpen(false);
+    say("Text box is selected. Click the form to place one, or pick Cross or Tick.");
+  } catch (err) { console.error(err); say("Could not open that file: " + err.message, true); }
+}
+
+async function imageToPdf(bytes, type) {   // a photo becomes a one-page PDF
+  const doc = await PDFLib.PDFDocument.create();
+  const img = type === "image/png" ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+  doc.addPage([img.width, img.height]).drawImage(img, { x: 0, y: 0, width: img.width, height: img.height });
+  return await doc.save();
+}
+
+async function renderPages() {
+  const holder = $("pages"); holder.innerHTML = ""; pages = [];
+  const targetW = Math.min(760, panel.clientWidth - (window.innerWidth <= 860 ? 26 : 50));
+  const dpr = window.devicePixelRatio || 1;
+  for (let i = 0; i < pdfJs.numPages; i++) {
+    const pg = await pdfJs.getPage(i + 1);
+    const base = pg.getViewport({ scale: 1 });
+    const scale = targetW / base.width;                       // screen px per PDF point
+    const vp = pg.getViewport({ scale: scale * dpr });
+    const wrap = document.createElement("div"); wrap.className = "page-wrap";
+    wrap.innerHTML = '<div class="page-label">Page ' + (i + 1) + ' of ' + pdfJs.numPages + '</div><div class="stack"><canvas></canvas><div class="ov"></div></div>';
+    holder.append(wrap);
+    const cv = wrap.querySelector("canvas"); cv.width = vp.width; cv.height = vp.height;
+    cv.style.height = base.height * scale + "px";
+    const ov = wrap.querySelector(".ov");
+    await pg.render({ canvasContext: cv.getContext("2d"), viewport: vp }).promise;
+    pages.push({ wrap, ov, scale, w: base.width, h: base.height });
+    ov.addEventListener("pointerdown", e => {
+      if (e.target !== ov) return;
+      if (!tool) { select(null); return; }
+      const r = ov.getBoundingClientRect();
+      addField(i, (e.clientX - r.left) / scale, (e.clientY - r.top) / scale);
+    });
+  }
+  fields.forEach(buildBox); armOverlays(); select(sel);
+}
+
+let rt; window.addEventListener("resize", () => { if (!pdfJs) return; clearTimeout(rt); rt = setTimeout(renderPages, 250); });
+$("pageJumpInput").addEventListener("change", e => {
+  const n = Math.max(1, Math.min(pages.length, +e.target.value || 1));
+  pages[n - 1].wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
+// ---------- Tools ----------
+function setTool(t) {
+  tool = tool === t ? null : t;
+  $("tText").setAttribute("aria-pressed", tool === "text");
+  $("tCross").setAttribute("aria-pressed", tool === "cross");
+  $("tTick").setAttribute("aria-pressed", tool === "tick");
+  armOverlays();
+  if (pdfJs) say(tool ? "Click the form to place a " + LABEL[tool] + ". Click the button again to stop adding." : "");
+}
+$("tText").onclick = () => { setTool("text"); setOpen(false); };
+// While typing in a text box, Cross/Tick insert a mark at the cursor instead of arming the tool.
+// The text box and cursor position are captured the moment the button is pressed (before any
+// focus change can happen), so this also works on touch devices and in browsers that blur the box.
+let typing = null;
+function captureTyping() {
+  const a = document.activeElement;
+  typing = (a && a.classList && a.classList.contains("ti")) ? { inp: a, st: a.selectionStart, en: a.selectionEnd } : null;
+}
+function useMark(kind) {
+  const t = typing; typing = null;
+  const a = document.activeElement;
+  const inp = t ? t.inp : (a && a.classList && a.classList.contains("ti") ? a : null);
+  if (inp && inp.isConnected) {
+    const st = t ? t.st : inp.selectionStart, en = t ? t.en : inp.selectionEnd;
+    inp.focus({ preventScroll: true });
+    inp.setRangeText(MARKS[kind], st, en, "end");
+    inp.dispatchEvent(new Event("input"));            // keeps the stored value in sync
+    setOpen(false); return;
+  }
+  setTool(kind); setOpen(false);
+}
+["tCross", "tTick"].forEach(id => {
+  const b = $(id);
+  b.addEventListener("pointerdown", captureTyping, true);
+  b.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") captureTyping(); });
+});
+$("tCross").onclick = () => useMark("cross");
+$("tTick").onclick = () => useMark("tick");
+// keep the text cursor in the box when a tool button or the menu button is pressed
+["tText", "tCross", "tTick", "sidebarToggle"].forEach(id => {
+  $(id).addEventListener("mousedown", e => e.preventDefault());
+  $(id).addEventListener("pointerdown", e => { if (e.pointerType === "mouse") e.preventDefault(); });
+});
+function armOverlays() { pages.forEach(p => p.ov.classList.toggle("armed", !!tool)); }
+
+// ---------- Fields (stored in PDF points, top-left origin) ----------
+function addField(pi, cx, cy) {
+  const d = DEFAULTS[tool], p = pages[pi];
+  const f = { id: nextId++, page: pi, type: tool, w: d.w, h: d.h,
+    x: Math.max(0, Math.min(p.w - d.w, cx)), y: Math.max(0, Math.min(p.h - d.h, cy)), name: "",
+    value: "", font: last.font, size: last.size, align: "left" };
+  f.name = tool + "_" + f.id;
+  fields.push(f); buildBox(f); select(f.id); if (COARSE && f.inp) f.inp.focus();
+}
+
+// A single click (without dragging) on a text box starts editing, with the cursor where you clicked.
+const measureCtx = document.createElement("canvas").getContext("2d");
+function focusAt(f, clientX, clientY) {
+  const inp = f.inp; if (!inp) return;
+  inp.focus({ preventScroll: true });
+  if (clientX == null || !inp.value) return;
+  // Mirror the textarea's wrapped text in a hidden div to find the character under the pointer.
+  const cs = getComputedStyle(inp), r = inp.getBoundingClientRect();
+  const m = document.createElement("div");
+  Object.assign(m.style, { position: "fixed", left: r.left + "px", top: r.top + "px", width: r.width + "px", visibility: "hidden", pointerEvents: "none",
+    boxSizing: "border-box", whiteSpace: "pre-wrap", overflowWrap: "break-word", font: cs.font, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing,
+    padding: cs.padding, textAlign: cs.textAlign, border: "0" });
+  const node = document.createTextNode(inp.value); m.append(node); document.body.append(m);
+  const n = inp.value.length, rg = document.createRange();
+  const rects = [];
+  for (let i = 0; i < n; i++) { rg.setStart(node, i); rg.setEnd(node, i + 1); const c = rg.getClientRects(); rects.push(c.length ? c[0] : null); }
+  m.remove();
+  const y = clientY == null ? 0 : clientY;
+  // find the line (by vertical position) closest to the pointer, then the nearest character edge on it
+  let bestLine = null, bestDy = Infinity;
+  for (const q of rects) { if (!q) continue; const dy = y < q.top ? q.top - y : y > q.bottom ? y - q.bottom : 0; if (dy < bestDy - 0.5) { bestDy = dy; bestLine = q.top; } }
+  let pos = n, bestDx = Infinity;
+  for (let i = 0; i < n; i++) {
+    const q = rects[i]; if (!q || Math.abs(q.top - bestLine) > 2) continue;
+    const dl = Math.abs(clientX - q.left), dr = Math.abs(clientX - q.right);
+    if (dl < bestDx) { bestDx = dl; pos = i; }
+    if (dr < bestDx) { bestDx = dr; pos = i + 1; }
+  }
+  if (pos > 0 && pos <= n && inp.value[pos - 1] === "\n" && pos === n) pos = n;
+  inp.setSelectionRange(pos, pos);
+}
+function buildBox(f) {
+  const el = document.createElement("div"); el.className = "fb";
+  ["n", "s", "w", "e", "nw", "ne", "sw", "se"].forEach(d => { const h = document.createElement("div"); h.className = "h " + d; h.dataset.dir = d; el.append(h); });
+  const x = document.createElement("div"); x.className = "x"; x.textContent = "✕"; x.title = "Delete field"; el.append(x);
+  if (f.type === "text") {                       // a real, typeable text box
+    const inp = document.createElement("textarea"); inp.className = "ti"; inp.spellcheck = false; inp.value = f.value;
+    inp.setAttribute("aria-label", "Text for " + f.name); inp.autocomplete = "off";
+    inp.addEventListener("input", () => f.value = inp.value);
+    inp.addEventListener("focus", () => select(f.id));
+    el.append(inp); f.inp = inp;
+  }
+  if (MARKS[f.type]) {                           // a cross or tick centered in the box
+    const mk = document.createElement("div"); mk.className = "mk"; mk.textContent = MARKS[f.type]; el.append(mk); f.mk = mk;
+  }
+  el.addEventListener("dblclick", e => { if (f.inp && e.target === el) f.inp.focus(); });
+  f.el = el; place(f); pages[f.page].ov.append(el);
+
+  el.addEventListener("pointerdown", e => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (e.target === x) { removeField(f.id); return; }
+    select(f.id);
+    const p = pages[f.page], dir = e.target.dataset.dir, o = { x: f.x, y: f.y, w: f.w, h: f.h }, sx = e.clientX, sy = e.clientY;
+    el.setPointerCapture(e.pointerId);
+    let moved = false;
+    const move = ev => {
+      if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true;
+      const dx = (ev.clientX - sx) / p.scale, dy = (ev.clientY - sy) / p.scale;
+      if (!dir) {
+        f.x = Math.max(0, Math.min(p.w - f.w, o.x + dx)); f.y = Math.max(0, Math.min(p.h - f.h, o.y + dy));
+      } else {
+        let nx = o.x, ny = o.y, nw = o.w, nh = o.h;
+        if (dir.includes("e")) nw = o.w + dx;
+        if (dir.includes("w")) { nw = o.w - dx; nx = o.x + dx; }
+        if (dir.includes("s")) nh = o.h + dy;
+        if (dir.includes("n")) { nh = o.h - dy; ny = o.y + dy; }
+        const min = 8;
+        if (nw < min || nh < min) return;
+        Object.assign(f, { x: nx, y: ny, w: nw, h: nh });
+      }
+      place(f);
+    };
+    const up = ev => { if (!moved && !dir && f.inp) focusAt(f, ev.clientX, ev.clientY); el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
+    el.addEventListener("pointermove", move); el.addEventListener("pointerup", up); el.addEventListener("pointercancel", up);
+  });
+}
+function place(f) {
+  const s = pages[f.page].scale;
+  Object.assign(f.el.style, { left: f.x * s + "px", top: f.y * s + "px", width: f.w * s + "px", height: f.h * s + "px" });
+  if (f.inp) styleInput(f);
+  if (f.mk) f.mk.style.fontSize = Math.min(f.w, f.h) * 0.75 * s + "px";   // glyph scales with the box
+}
+const FONT_CSS = { Helvetica: "Helvetica, Arial, sans-serif", TimesRoman: "'Times New Roman', Times, serif", Courier: "'Courier New', Courier, monospace" };
+function styleInput(f) {
+  const s = pages[f.page].scale, pt = f.size > 0 ? f.size : Math.max(6, f.h * 0.6);   // auto ~ 60% of box height
+  Object.assign(f.inp.style, { fontFamily: FONT_CSS[f.font], fontSize: pt * s + "px", textAlign: f.align });
+}
+function removeField(id) {
+  const f = fields.find(x => x.id === id); if (!f) return;
+  f.el && f.el.remove(); fields = fields.filter(x => x.id !== id);
+  if (sel === id) sel = null;
+}
+function select(id) {
+  sel = id;
+  const a = document.activeElement, cur = fields.find(x => x.id === id);
+  if (a && a.classList && a.classList.contains("ti") && !(cur && cur.inp === a)) a.blur();
+  fields.forEach(f => f.el && f.el.classList.toggle("sel", f.id === id));
+  const f = fields.find(x => x.id === id), on = !!(f && f.type === "text");
+  $("fontSel").disabled = $("sizeIn").disabled = !on;
+  if (on) { $("fontSel").value = f.font; $("sizeIn").value = f.size; }
+  document.querySelectorAll("#alignSeg button").forEach(b => { b.disabled = !on; b.setAttribute("aria-pressed", on && f.align === b.dataset.a); });
+}
+$("fontSel").onchange = () => { const f = fields.find(x => x.id === sel); if (!f) return; f.font = last.font = $("fontSel").value; styleInput(f); };
+document.querySelectorAll("#alignSeg button").forEach(b => {
+  b.addEventListener("mousedown", e => e.preventDefault());       // keep the cursor in the box
+  b.onclick = () => { const f = fields.find(x => x.id === sel); if (!f || !f.inp) return; f.align = b.dataset.a; styleInput(f); select(f.id); };
+});
+$("sizeIn").oninput = () => { const f = fields.find(x => x.id === sel); if (!f) return;
+  f.size = last.size = Math.max(0, Math.min(72, +$("sizeIn").value || 0)); styleInput(f); };
+document.addEventListener("keydown", e => {
+  const a = document.activeElement, editing = a && /INPUT|TEXTAREA|SELECT/.test(a.tagName), f = fields.find(x => x.id === sel);
+  if (!editing && f) {
+    if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); removeField(f.id); return; }
+    // typing on a selected text box starts editing it
+    if (f.inp && !e.ctrlKey && !e.metaKey && !e.altKey && (e.key.length === 1 || e.key === "Enter")) {
+      f.inp.focus(); if (e.key === "Enter") e.preventDefault();
+    }
+  }
+  if (e.key === "Escape") {
+    if (editing && a.classList.contains("ti")) a.blur();     // stop typing, keep the box selected
+    else { setTool(null); select(null); }
+  }
+});
+
+// ---------- Save with pdf-lib ----------
+function drawMixed(page, f, fonts) {
+  const size = f.size > 0 ? f.size : Math.max(6, f.h * 0.6), lh = size * 1.15;
+  const lines = f.value.split(/\r?\n/);
+  lines.forEach((line, li) => {
+    const y = page.getHeight() - f.y - 2 - size * 0.85 - li * lh;
+    const runs = line.split(/([✘✔])/).filter(Boolean).map(t => {
+      const font = (t === "✘" || t === "✔") ? fonts.ZapfDingbats : fonts[f.font];
+      return { t, font, w: font.widthOfTextAtSize(t, size) };
+    });
+    const total = runs.reduce((a, r) => a + r.w, 0);
+    let x = f.align === "center" ? f.x + (f.w - total) / 2 : f.align === "right" ? f.x + f.w - 2 - total : f.x + 2;
+    for (const r of runs) { page.drawText(r.t, { x, y, size, font: r.font }); x += r.w; }
+  });
+}
+$("saveBtn").onclick = async () => {
+  if (!fields.length) { say("Add at least one field first.", true); return; }
+  try {
+    say("Saving…");
+    const doc = await PDFLib.PDFDocument.load(pdfBytes), form = doc.getForm();
+    const used = new Set(form.getFields().map(f => f.getName()));
+    const fonts = {}; let fixedCount = 0;
+    for (const k of ["Helvetica", "TimesRoman", "Courier", "ZapfDingbats"]) fonts[k] = await doc.embedFont(PDFLib.StandardFonts[k]);
+    for (const f of fields) {
+      const base = (f.name || "").trim() || "field"; let name = base, n = 2;
+      while (used.has(name)) name = base + "_" + n++;            // pdf-lib needs unique names
+      used.add(name);
+      const page = doc.getPage(f.page);
+      const opts = { x: f.x, y: page.getHeight() - f.y - f.h, width: f.w, height: f.h,
+        borderWidth: 0, borderColor: undefined, backgroundColor: undefined };   // clear: no outline, no white fill
+      if (MARKS[f.type]) {                                     // mark = centered, auto-sized glyph in a borderless field
+        const tf = form.createTextField(name); tf.addToPage(page, { ...opts, borderWidth: 0 });
+        tf.setText(f.type === "tick" ? "✔" : "✘"); tf.setAlignment(PDFLib.TextAlignment.Center);
+        tf.setFontSize(0); tf.updateAppearances(fonts.ZapfDingbats);
+      }
+      else if (/[✘✔]/.test(f.value)) {                       // text with marks: mix fonts, so draw it as fixed text
+        try { drawMixed(page, f, fonts); fixedCount++; }
+        catch (err) { throw new Error("The " + f.font + " font can't show some characters in “" + f.name + "”. Standard PDF fonts cover Western European languages only."); }
+      }
+      else {
+        const tf = form.createTextField(name); tf.enableMultiline(); tf.addToPage(page, opts);
+        try {
+          if (f.value) tf.setText(f.value);
+          tf.setFontSize(f.size);                              // 0 = auto-size
+          tf.setAlignment(PDFLib.TextAlignment[f.align[0].toUpperCase() + f.align.slice(1)]);
+          tf.updateAppearances(fonts[f.font]);
+        } catch (err) {
+          throw new Error("The " + f.font + " font can't show some characters in “" + f.name + "”. Standard PDF fonts cover Western European languages only.");
+        }
+      }
+    }
+    if ($("flatten").checked) form.flatten({ updateFieldAppearances: false });
+    const url = URL.createObjectURL(new Blob([await doc.save()], { type: "application/pdf" }));
+    const a = document.createElement("a"); a.href = url; a.download = fileName + "-fillable.pdf";
+    document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+    say("Saved " + fields.length + " field" + (fields.length > 1 ? "s" : "") + " to " + a.download + "." + (fixedCount ? " Text boxes containing a cross or tick were saved as fixed text, not editable fields." : ""));
+  } catch (err) { console.error(err); say("Could not save: " + err.message, true); }
+};
+</script>
+</body>
+</html>
