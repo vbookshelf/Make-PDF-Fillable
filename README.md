@@ -11,6 +11,10 @@ https://make-pdf-fillable.woza.work/
 
 <br>
 
+I created this tool to support those who help immigrants and refugees fill in forms. By using this tool they can save time by typing in info instead of writing. This way they can help more people at a faster pace.
+
+<br>
+
 <img src="images/image1.png" alt="App screenshot" height="500">
 <p>Minimalist UI</p>
 
