@@ -1,5 +1,5 @@
 # Make PDF Fillable
-An open source offline tool to add fillable fields to a pdf form.
+A free, open source offline tool to add fillable fields to a pdf form.
 
 - Minimal features - app is simple to use
 - Fields continue to be editable after pdf is downloaded (Use your device's "print as pdf" feature to make a pdf non-editable).
