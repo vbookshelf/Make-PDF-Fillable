@@ -1,10 +1,10 @@
 # Make PDF Fillable
 A free, open source offline tool to add fillable fields to a pdf form.
 
-- Minimal features - app is simple to use
-- Fields continue to be editable after pdf is downloaded (Use your device's "print as pdf" feature to make a pdf non-editable).
+- Minimal features - app is simple to use, no learning curve.
+- Create fillable form once and then reuse. Fields continue to be editable after pdf is downloaded (Use your device's "print as pdf" feature to make a pdf non-editable).
 - Runs locally and offline. No data leaves your device.
-- Easy to modify the code using vibe coding. Simply pass the index.html file to an LLM like Claude Sonnet.
+- Easy to modify or to add features using vibe coding. Simply pass the index.html file to an LLM like Claude Sonnet and tell it what changes you want.
 - No restricted features, no paywalls, no watermarks, no ads.
 
 Live demo:<br>
