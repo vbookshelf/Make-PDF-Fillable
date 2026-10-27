@@ -10,7 +10,7 @@ A free, open source offline tool to add fillable fields to a pdf form.
 Live demo:<br>
 https://make-pdf-fillable.woza.work/
 
-I created this tool to support those who help immigrants and refugees fill in forms. By using this tool they can save time by typing in info instead of handwriting. This way they can help more people at a faster pace. 
+I created this tool to support those who help immigrants and refugees complete official paperwork. By using this tool they can save time by typing in info instead of handwriting. This way they can help more people at a faster pace. 
 
 Many official forms are printed copies so volunteers end up handwriting on them. Converting to pdf and then typing is faster, more legible and easy to correct. Privacy is important because these forms hold sensitive personal data.
 
